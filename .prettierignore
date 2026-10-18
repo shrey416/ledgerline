@@ -1,0 +1,9 @@
+node_modules
+dist
+.npm-cache
+services
+infra/k8s/rendered.yaml
+implementation/feature-status.csv
+test-results
+artifacts
+docs

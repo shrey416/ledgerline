@@ -1,0 +1,65 @@
+# Daily desktop profile. All five domain services/databases, metrics and alerts;
+# expensive log indexing, tracing and CDC demonstrations run with the full profile.
+x-daily-app: &daily-app
+  cpus: 0.5
+  logging:
+    driver: json-file
+    options: {max-size: 5m, max-file: '2'}
+  environment:
+    OTEL_SDK_DISABLED: 'true'
+
+services:
+  otel-collector:
+    cpus: 0.1
+    volumes: !override ['./observability/otel.daily.yml:/etc/otel.yaml:ro']
+  postgres: {cpus: 0.5, healthcheck: {interval: 30s}}
+  # mongosh needs CPU during recovery. Check frequently only while starting;
+  # retain sparse checks once healthy to avoid continuous desktop overhead.
+  mongodb:
+    cpus: 1.0
+    healthcheck: {interval: 60s, timeout: 20s, start_period: 90s, start_interval: 5s}
+  redis: {cpus: 0.25, healthcheck: {interval: 30s}}
+  clickhouse: {cpus: 0.5, healthcheck: {interval: 60s}}
+  cassandra:
+    cpus: 0.75
+    healthcheck: {interval: 120s}
+    environment:
+      MALLOC_ARENA_MAX: '2'
+    # A desktop must be able to reclaim idle native/JVM pages. Preserve the
+    # 384MiB heap, 128MiB direct cap, data volume and 1280MiB safety limit.
+    ulimits:
+      memlock: {soft: 65536, hard: 65536}
+  kafka: {cpus: 0.5}
+  keycloak:
+    cpus: 1.0
+    # Heap remains capped at 256MiB. Leave room for native JVM/authentication memory.
+    mem_limit: 640m
+    environment:
+      JAVA_OPTS_APPEND: '-XX:ActiveProcessorCount=2'
+  core-finance:
+    <<: *daily-app
+    environment:
+      OTEL_SDK_DISABLED: 'true'
+      MANAGEMENT_TRACING_ENABLED: 'false'
+      TRACE_SAMPLE_RATE: '0.0'
+      JAVA_TOOL_OPTIONS: '-XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=15 -XX:ActiveProcessorCount=2'
+  capture-automation: {<<: *daily-app}
+  rates-realtime: {<<: *daily-app}
+  analytics: {<<: *daily-app}
+  notifications: {<<: *daily-app}
+  gateway:
+    <<: *daily-app
+    ports: !override ['127.0.0.1:30088:8080']
+  web:
+    <<: *daily-app
+    ports: !override ['127.0.0.1:30080:8080']
+  prometheus:
+    cpus: 0.25
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=1d, --storage.tsdb.retention.size=128MB, --web.enable-lifecycle]
+  grafana: {cpus: 0.5}
+  alertmanager: {cpus: 0.1}
+  blackbox: {cpus: 0.25}
+  postgres-exporter: {cpus: 0.1}
+  redis-exporter: {cpus: 0.1}
+  cadvisor: {cpus: 0.2}
+  mailpit: {cpus: 0.1}

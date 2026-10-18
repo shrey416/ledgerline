@@ -1,0 +1,105 @@
+[
+  {
+    "type": "index-pattern",
+    "id": "ledgerline-log-view",
+    "attributes": {
+      "title": "ledgerline-logs-*",
+      "timeFieldName": "@timestamp"
+    },
+    "references": []
+  },
+  {
+    "type": "search",
+    "id": "ledgerline-log-stream",
+    "attributes": {
+      "title": "Ledgerline / Searchable log stream",
+      "description": "Filter service_name, severity, status and trace_id. Never log credentials or finance request bodies.",
+      "columns": [
+        "service_name",
+        "severity",
+        "status",
+        "trace_id",
+        "message"
+      ],
+      "sort": [
+        [
+          "@timestamp",
+          "desc"
+        ]
+      ],
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"indexRefName\": \"kibanaSavedObjectMeta.searchSourceJSON.index\", \"query\": {\"query\": \"\", \"language\": \"kuery\"}, \"filter\": []}"
+      }
+    },
+    "references": [
+      {
+        "name": "kibanaSavedObjectMeta.searchSourceJSON.index",
+        "type": "index-pattern",
+        "id": "ledgerline-log-view"
+      }
+    ]
+  },
+  {
+    "type": "visualization",
+    "id": "ledgerline-log-services",
+    "attributes": {
+      "title": "Log events by service",
+      "visState": "{\"title\": \"Log events by service\", \"type\": \"vega\", \"params\": {\"spec\": \"{\\\"$schema\\\": \\\"https://vega.github.io/schema/vega-lite/v5.json\\\", \\\"description\\\": \\\"Log events by service\\\", \\\"data\\\": {\\\"url\\\": {\\\"%context%\\\": true, \\\"%timefield%\\\": \\\"@timestamp\\\", \\\"index\\\": \\\"ledgerline-logs-*\\\", \\\"body\\\": {\\\"size\\\": 0, \\\"aggs\\\": {\\\"groups\\\": {\\\"terms\\\": {\\\"field\\\": \\\"service_name\\\", \\\"size\\\": 20}}}}}, \\\"format\\\": {\\\"property\\\": \\\"aggregations.groups.buckets\\\"}}, \\\"mark\\\": {\\\"type\\\": \\\"bar\\\", \\\"color\\\": \\\"#47752a\\\"}, \\\"encoding\\\": {\\\"y\\\": {\\\"field\\\": \\\"key\\\", \\\"type\\\": \\\"nominal\\\", \\\"title\\\": null, \\\"sort\\\": \\\"-x\\\"}, \\\"x\\\": {\\\"field\\\": \\\"doc_count\\\", \\\"type\\\": \\\"quantitative\\\", \\\"title\\\": \\\"Log events\\\"}}, \\\"width\\\": \\\"container\\\", \\\"height\\\": \\\"container\\\"}\"}, \"aggs\": []}",
+      "uiStateJSON": "{}",
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{}"
+      }
+    },
+    "references": []
+  },
+  {
+    "type": "visualization",
+    "id": "ledgerline-log-severity",
+    "attributes": {
+      "title": "Log events by severity",
+      "visState": "{\"title\": \"Log events by severity\", \"type\": \"vega\", \"params\": {\"spec\": \"{\\\"$schema\\\": \\\"https://vega.github.io/schema/vega-lite/v5.json\\\", \\\"description\\\": \\\"Log events by severity\\\", \\\"data\\\": {\\\"url\\\": {\\\"%context%\\\": true, \\\"%timefield%\\\": \\\"@timestamp\\\", \\\"index\\\": \\\"ledgerline-logs-*\\\", \\\"body\\\": {\\\"size\\\": 0, \\\"aggs\\\": {\\\"groups\\\": {\\\"terms\\\": {\\\"field\\\": \\\"severity\\\", \\\"size\\\": 20}}}}}, \\\"format\\\": {\\\"property\\\": \\\"aggregations.groups.buckets\\\"}}, \\\"mark\\\": {\\\"type\\\": \\\"bar\\\", \\\"color\\\": \\\"#47752a\\\"}, \\\"encoding\\\": {\\\"y\\\": {\\\"field\\\": \\\"key\\\", \\\"type\\\": \\\"nominal\\\", \\\"title\\\": null, \\\"sort\\\": \\\"-x\\\"}, \\\"x\\\": {\\\"field\\\": \\\"doc_count\\\", \\\"type\\\": \\\"quantitative\\\", \\\"title\\\": \\\"Log events\\\"}}, \\\"width\\\": \\\"container\\\", \\\"height\\\": \\\"container\\\"}\"}, \"aggs\": []}",
+      "uiStateJSON": "{}",
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{}"
+      }
+    },
+    "references": []
+  },
+  {
+    "type": "dashboard",
+    "id": "ledgerline-logs",
+    "attributes": {
+      "title": "Ledgerline / Application logs",
+      "description": "Real Compose and Kubernetes logs. Filter service_name, severity, status or trace_id; time range defaults to the last hour.",
+      "panelsJSON": "[{\"panelIndex\": \"0\", \"type\": \"visualization\", \"panelRefName\": \"panel_0\", \"embeddableConfig\": {}, \"gridData\": {\"x\": 0, \"y\": 0, \"w\": 24, \"h\": 15, \"i\": \"0\"}}, {\"panelIndex\": \"1\", \"type\": \"visualization\", \"panelRefName\": \"panel_1\", \"embeddableConfig\": {}, \"gridData\": {\"x\": 24, \"y\": 0, \"w\": 24, \"h\": 15, \"i\": \"1\"}}, {\"panelIndex\": \"2\", \"type\": \"search\", \"panelRefName\": \"panel_2\", \"embeddableConfig\": {}, \"gridData\": {\"x\": 0, \"y\": 15, \"w\": 48, \"h\": 22, \"i\": \"2\"}}]",
+      "optionsJSON": "{\"useMargins\": true, \"syncColors\": true, \"hidePanelTitles\": false}",
+      "timeRestore": true,
+      "timeFrom": "now-1h",
+      "timeTo": "now",
+      "refreshInterval": {
+        "pause": false,
+        "value": 15000
+      },
+      "kibanaSavedObjectMeta": {
+        "searchSourceJSON": "{\"query\": {\"query\": \"\", \"language\": \"kuery\"}, \"filter\": []}"
+      }
+    },
+    "references": [
+      {
+        "name": "panel_0",
+        "type": "visualization",
+        "id": "ledgerline-log-services"
+      },
+      {
+        "name": "panel_1",
+        "type": "visualization",
+        "id": "ledgerline-log-severity"
+      },
+      {
+        "name": "panel_2",
+        "type": "search",
+        "id": "ledgerline-log-stream"
+      }
+    ]
+  }
+]

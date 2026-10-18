@@ -1,0 +1,47 @@
+[
+  {
+    "targets": [
+      "http://172.19.0.7:30081/actuator/health/readiness"
+    ],
+    "labels": {
+      "service": "core-finance",
+      "environment": "kubernetes"
+    }
+  },
+  {
+    "targets": [
+      "http://172.19.0.7:30082/health/ready"
+    ],
+    "labels": {
+      "service": "capture-automation",
+      "environment": "kubernetes"
+    }
+  },
+  {
+    "targets": [
+      "http://172.19.0.7:30083/health/ready"
+    ],
+    "labels": {
+      "service": "rates-realtime",
+      "environment": "kubernetes"
+    }
+  },
+  {
+    "targets": [
+      "http://172.19.0.7:30084/health/ready"
+    ],
+    "labels": {
+      "service": "analytics",
+      "environment": "kubernetes"
+    }
+  },
+  {
+    "targets": [
+      "http://172.19.0.7:30085/health/ready"
+    ],
+    "labels": {
+      "service": "notifications",
+      "environment": "kubernetes"
+    }
+  }
+]

@@ -1,0 +1,48 @@
+[
+  {
+    "targets": [
+      "172.19.0.7:30081"
+    ],
+    "labels": {
+      "service": "core-finance",
+      "environment": "kubernetes",
+      "__metrics_path__": "/actuator/prometheus"
+    }
+  },
+  {
+    "targets": [
+      "172.19.0.7:30082"
+    ],
+    "labels": {
+      "service": "capture-automation",
+      "environment": "kubernetes"
+    }
+  },
+  {
+    "targets": [
+      "172.19.0.7:30083"
+    ],
+    "labels": {
+      "service": "rates-realtime",
+      "environment": "kubernetes"
+    }
+  },
+  {
+    "targets": [
+      "172.19.0.7:30084"
+    ],
+    "labels": {
+      "service": "analytics",
+      "environment": "kubernetes"
+    }
+  },
+  {
+    "targets": [
+      "172.19.0.7:30085"
+    ],
+    "labels": {
+      "service": "notifications",
+      "environment": "kubernetes"
+    }
+  }
+]

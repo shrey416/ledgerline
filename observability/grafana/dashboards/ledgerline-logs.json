@@ -1,0 +1,67 @@
+{
+  "uid": "ledgerline-logs",
+  "title": "Ledgerline / Logs",
+  "tags": [
+    "ledgerline"
+  ],
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "editable": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Structured application logs \u2014 use Kibana for full filtering",
+      "type": "logs",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 18
+      },
+      "datasource": {
+        "type": "elasticsearch",
+        "uid": "elasticsearch"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "*",
+          "metrics": [
+            {
+              "id": "1",
+              "type": "logs"
+            }
+          ],
+          "bucketAggs": []
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ],
+  "links": [
+    {
+      "title": "Kibana logs",
+      "url": "http://localhost:5601/app/discover",
+      "targetBlank": true
+    },
+    {
+      "title": "Alert inbox",
+      "url": "http://localhost:9093",
+      "targetBlank": true
+    }
+  ],
+  "templating": {
+    "list": []
+  }
+}

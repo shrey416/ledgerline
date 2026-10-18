@@ -1,0 +1,5 @@
+http.host: 0.0.0.0
+pipeline.workers: 1
+pipeline.batch.size: 50
+config.reload.automatic: true
+xpack.monitoring.enabled: false

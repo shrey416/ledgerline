@@ -1,0 +1,60 @@
+{
+  "uid": "ledgerline-traces",
+  "title": "Ledgerline / Distributed traces",
+  "tags": [
+    "ledgerline"
+  ],
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "editable": false,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Recent service traces",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 16
+      },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceql",
+          "query": "{ resource.service.name != nil }",
+          "limit": 50,
+          "tableType": "traces"
+        }
+      ],
+      "options": {
+        "showHeader": true
+      }
+    }
+  ],
+  "links": [
+    {
+      "title": "Kibana logs",
+      "url": "http://localhost:5601/app/discover",
+      "targetBlank": true
+    },
+    {
+      "title": "Alert inbox",
+      "url": "http://localhost:9093",
+      "targetBlank": true
+    }
+  ],
+  "templating": {
+    "list": []
+  }
+}

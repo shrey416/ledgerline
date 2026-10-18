@@ -1,0 +1,70 @@
+{
+  "realm": "ledgerline",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "resetPasswordAllowed": true,
+  "verifyEmail": true,
+  "rememberMe": true,
+  "bruteForceProtected": true,
+  "loginTheme": "ledgerline",
+  "displayName": "Ledgerline",
+  "passwordPolicy": "length(12) and notUsername",
+  "clients": [
+    {
+      "clientId": "ledgerline-local",
+      "enabled": true,
+      "publicClient": true,
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true,
+      "redirectUris": [
+        "http://localhost:8080/*",
+        "http://localhost:30080/*",
+        "http://127.0.0.1:5173/*",
+        "http://localhost:5173/*",
+        "http://localhost:3001/*"
+      ],
+      "protocolMappers": [
+        {
+          "name": "ledgerline-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "ledgerline",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ],
+      "webOrigins": [
+        "http://localhost:8080",
+        "http://localhost:30080",
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "http://localhost:3001"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/*##http://localhost:30080/*##http://127.0.0.1:5173/*##http://localhost:5173/*##http://localhost:3001/*"
+      }
+    }
+  ],
+  "users": [
+    {"username":"notification-check","enabled":true,"emailVerified":true,"email":"check@ledgerline.local","firstName":"Runtime","lastName":"Check","credentials":[{"type":"password","value":"local-check-only","temporary":false}]},
+    {
+      "username": "demo",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "demo@ledgerline.local",
+      "firstName": "Demo",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-demo-only",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

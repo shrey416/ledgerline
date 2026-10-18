@@ -1,0 +1,48 @@
+groups:
+  - name: ledgerline
+    rules:
+      - alert: ProbeExporterUnavailable
+        expr: up{job="blackbox"} == 0
+        for: 1m
+        labels: {severity: warning}
+        annotations: {summary: 'Probe exporter is unavailable; readiness and TCP checks are incomplete'}
+      - alert: DatabasePortUnavailable
+        expr: probe_success{job="databases-tcp"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: '{{ $labels.database }} TCP connection failed'}
+      - alert: EmailTransportUnavailable
+        expr: ledgerline_notification_email_transport_up == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: 'SMTP connection or authentication check failed; inspect notification logs'}
+      - alert: ServiceMetricsUnavailable
+        expr: up{job="ledgerline-services"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: 'Metrics unavailable for {{ $labels.service }}'}
+      - alert: DatabaseDependencyUnavailable
+        expr: ledgerline_dependency_up == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: '{{ $labels.service }} cannot reach {{ $labels.dependency }}'}
+      - alert: ServiceNotReady
+        expr: probe_success{job="service-readiness"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations: {summary: '{{ $labels.service }} readiness failed'}
+      - alert: ElevatedServerErrors
+        expr: sum by(service) (rate(ledgerline_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum by(service) (rate(ledgerline_http_requests_total[5m])),0.01) > 0.05
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: 'More than 5% server errors for {{ $labels.service }}'}
+      - alert: HighContainerMemory
+        expr: container_memory_working_set_bytes / clamp_min(container_spec_memory_limit_bytes,1) > 0.9 and container_spec_memory_limit_bytes > 0
+        for: 2m
+        labels: {severity: warning}
+        annotations: {summary: 'Container approaching its memory limit'}
+      - alert: TelemetryStoragePressure
+        expr: prometheus_tsdb_head_series > 100000
+        for: 5m
+        labels: {severity: warning}
+        annotations: {summary: 'Local telemetry series count exceeds its budget'}

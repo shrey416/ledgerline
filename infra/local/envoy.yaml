@@ -1,0 +1,102 @@
+static_resources:
+  listeners:
+    - name: public
+      address: {socket_address: {address: 0.0.0.0, port_value: 8080}}
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ledgerline_gateway
+                codec_type: AUTO
+                generate_request_id: true
+                tracing:
+                  provider:
+                    name: envoy.tracers.opentelemetry
+                    typed_config:
+                      '@type': type.googleapis.com/envoy.config.trace.v3.OpenTelemetryConfig
+                      service_name: gateway
+                      grpc_service: {envoy_grpc: {cluster_name: otel}}
+                access_log:
+                  - name: envoy.access_loggers.stdout
+                    typed_config:
+                      '@type': type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+                      log_format:
+                        json_format: {service: gateway, message: HTTP request, route: '%REQ(:PATH)%', status: '%RESPONSE_CODE%', duration_ms: '%DURATION%', trace_id: '%TRACE_ID%', request_id: '%REQ(X-REQUEST-ID)%'}
+                route_config:
+                  name: routes
+                  virtual_hosts:
+                    - name: ledgerline
+                      domains: ['*']
+                      routes:
+                        - match: {prefix: /platform/health/core}
+                          route: {cluster: core-finance, prefix_rewrite: /actuator/health/readiness, timeout: 5s}
+                        - match: {prefix: /platform/health/capture}
+                          route: {cluster: capture-automation, prefix_rewrite: /health/ready, timeout: 5s}
+                        - match: {prefix: /platform/health/rates}
+                          route: {cluster: rates-realtime, prefix_rewrite: /health/ready, timeout: 5s}
+                        - match: {prefix: /platform/health/analytics}
+                          route: {cluster: analytics, prefix_rewrite: /health/ready, timeout: 5s}
+                        - match: {prefix: /platform/health/notifications}
+                          route: {cluster: notifications, prefix_rewrite: /health/ready, timeout: 5s}
+                        - match: {prefix: /api/v1/core/}
+                          route: {cluster: core-finance, timeout: 30s}
+                        - match: {prefix: /api/v1/capture/}
+                          route: {cluster: capture-automation, timeout: 5s}
+                        - match: {prefix: /api/v1/rates/}
+                          route: {cluster: rates-realtime, timeout: 5s}
+                        - match: {prefix: /api/v1/analytics/}
+                          route: {cluster: analytics, timeout: 5s}
+                        - match: {prefix: /api/v1/notifications/}
+                          # SMTP acceptance includes DNS, TLS, authentication and provider response.
+                          # Never retry POST delivery requests at the gateway.
+                          route: {cluster: notifications, timeout: 60s}
+                http_filters:
+                  - name: envoy.filters.http.router
+                    typed_config: {'@type': type.googleapis.com/envoy.extensions.filters.http.router.v3.Router}
+  clusters:
+    - name: core-finance
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      circuit_breakers: {thresholds: [{max_connections: 100, max_pending_requests: 20, max_requests: 100, max_retries: 2}]}
+      outlier_detection: {consecutive_5xx: 5, interval: 10s, base_ejection_time: 15s}
+      load_assignment: {cluster_name: core-finance, endpoints: [{lb_endpoints: [{endpoint: {address: {socket_address: {address: core-finance, port_value: 8080}}}}]}]}
+    - name: capture-automation
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      circuit_breakers: {thresholds: [{max_connections: 100, max_pending_requests: 20, max_requests: 100, max_retries: 2}]}
+      outlier_detection: {consecutive_5xx: 5, interval: 10s, base_ejection_time: 15s}
+      load_assignment: {cluster_name: capture-automation, endpoints: [{lb_endpoints: [{endpoint: {address: {socket_address: {address: capture-automation, port_value: 8080}}}}]}]}
+    - name: rates-realtime
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      circuit_breakers: {thresholds: [{max_connections: 100, max_pending_requests: 20, max_requests: 100, max_retries: 2}]}
+      outlier_detection: {consecutive_5xx: 5, interval: 10s, base_ejection_time: 15s}
+      load_assignment: {cluster_name: rates-realtime, endpoints: [{lb_endpoints: [{endpoint: {address: {socket_address: {address: rates-realtime, port_value: 8080}}}}]}]}
+    - name: analytics
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      circuit_breakers: {thresholds: [{max_connections: 100, max_pending_requests: 20, max_requests: 100, max_retries: 2}]}
+      outlier_detection: {consecutive_5xx: 5, interval: 10s, base_ejection_time: 15s}
+      load_assignment: {cluster_name: analytics, endpoints: [{lb_endpoints: [{endpoint: {address: {socket_address: {address: analytics, port_value: 8080}}}}]}]}
+    - name: notifications
+      connect_timeout: 2s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      circuit_breakers: {thresholds: [{max_connections: 100, max_pending_requests: 20, max_requests: 100, max_retries: 2}]}
+      outlier_detection: {consecutive_5xx: 5, interval: 10s, base_ejection_time: 15s}
+      load_assignment: {cluster_name: notifications, endpoints: [{lb_endpoints: [{endpoint: {address: {socket_address: {address: notifications, port_value: 8080}}}}]}]}
+    - name: otel
+      type: STRICT_DNS
+      connect_timeout: 2s
+      typed_extension_protocol_options:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          '@type': type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          explicit_http_config: {http2_protocol_options: {}}
+      load_assignment: {cluster_name: otel, endpoints: [{lb_endpoints: [{endpoint: {address: {socket_address: {address: otel-collector, port_value: 4317}}}}]}]}
+admin:
+  address: {socket_address: {address: 0.0.0.0, port_value: 9901}}

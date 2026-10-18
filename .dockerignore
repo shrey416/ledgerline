@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.npm-cache
+**/target
+**/bin
+**/obj
+**/__pycache__
+artifacts
+test-results
+.env
+.env.*
+infra/local/.env
+infra/local/email.env
+infra/local/s3-credentials.json
+infra/k8s/local/generated
+**/.m2

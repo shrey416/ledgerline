@@ -1,0 +1,10 @@
+[
+  {
+    "targets": [
+      "172.19.0.7:30090"
+    ],
+    "labels": {
+      "environment": "kubernetes"
+    }
+  }
+]

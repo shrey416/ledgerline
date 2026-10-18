@@ -1,0 +1,309 @@
+name: ledgerline
+
+x-app: &app
+  restart: unless-stopped
+  networks: [ledgerline]
+  logging:
+    driver: gelf
+    options:
+      gelf-address: udp://127.0.0.1:12201
+      tag: '{{.Name}}'
+      mode: non-blocking
+      max-buffer-size: 4m
+  environment: &otel
+    OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+    OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+
+services:
+  postgres:
+    image: postgres:17.5
+    command: [postgres, -c, wal_level=logical, -c, max_replication_slots=5, -c, max_wal_senders=5, -c, shared_buffers=64MB]
+    environment: {POSTGRES_DB: ledgerline, POSTGRES_USER: ledgerline, POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:?Run scripts/local-up.ps1}'}
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    networks: [ledgerline]
+    mem_limit: 256m
+    healthcheck: {test: [CMD-SHELL, 'pg_isready -U ledgerline -d ledgerline'], interval: 10s, timeout: 5s, retries: 12}
+    restart: unless-stopped
+  mongodb:
+    image: mongo:8.0.9
+    command: [mongod, --replSet, rs0, --bind_ip_all, --wiredTigerCacheSizeGB, '0.25']
+    volumes: [mongo-data:/data/db]
+    networks: [ledgerline]
+    mem_limit: 512m
+    healthcheck: {test: [CMD, mongosh, --quiet, --eval, 'db.adminCommand({ping:1}).ok'], interval: 20s, timeout: 10s, retries: 12}
+    restart: unless-stopped
+  mongo-init:
+    image: mongo:8.0.9
+    networks: [ledgerline]
+    depends_on: {mongodb: {condition: service_healthy}}
+    entrypoint: [mongosh, --host, mongodb, --quiet, --eval]
+    command: ['try { rs.status() } catch(e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"mongodb:27017"}]}) }']
+    mem_limit: 192m
+  redis:
+    image: redis:7.4.3-alpine
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 96mb, --maxmemory-policy, allkeys-lru, --requirepass, '${REDIS_PASSWORD:?Run scripts/local-up.ps1}']
+    environment: {REDISCLI_AUTH: '${REDIS_PASSWORD}'}
+    volumes: [redis-data:/data]
+    networks: [ledgerline]
+    mem_limit: 160m
+    healthcheck: {test: [CMD, redis-cli, ping], interval: 10s, timeout: 5s, retries: 10}
+    restart: unless-stopped
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3
+    environment: {CLICKHOUSE_DB: ledgerline, CLICKHOUSE_USER: ledgerline, CLICKHOUSE_PASSWORD: '${CLICKHOUSE_PASSWORD:?Run scripts/local-up.ps1}', CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: '1'}
+    volumes: [clickhouse-data:/var/lib/clickhouse, './observability/clickhouse.xml:/etc/clickhouse-server/config.d/metrics.xml:ro']
+    networks: [ledgerline]
+    mem_limit: 640m
+    ulimits: {nofile: {soft: 262144, hard: 262144}}
+    healthcheck: {test: [CMD-SHELL, 'clickhouse-client --user "$$CLICKHOUSE_USER" --password "$$CLICKHOUSE_PASSWORD" --query "SELECT 1"'], interval: 20s, timeout: 5s, retries: 12}
+    restart: unless-stopped
+  cassandra:
+    image: cassandra:5.0.4
+    environment: {MAX_HEAP_SIZE: 384M, JVM_EXTRA_OPTS: '-XX:MaxDirectMemorySize=128m -XX:ActiveProcessorCount=2 -Dcassandra.available_processors=2', CASSANDRA_NUM_TOKENS: '16', CASSANDRA_CLUSTER_NAME: LedgerlineLocal, CASSANDRA_DC: datacenter1, CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch}
+    volumes: [cassandra-data:/var/lib/cassandra]
+    networks: [ledgerline]
+    mem_limit: 1280m
+    healthcheck: {test: [CMD-SHELL, 'cqlsh -e "SELECT release_version FROM system.local"'], interval: 30s, timeout: 15s, retries: 20, start_period: 60s}
+    restart: unless-stopped
+  kafka:
+    image: apache/kafka:3.9.1
+    environment:
+      KAFKA_NODE_ID: '1'
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: '1'
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: '1'
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: '1'
+      KAFKA_LOG_RETENTION_HOURS: '24'
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: -Xms128m -Xmx256m
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes: [kafka-data:/var/lib/kafka/data]
+    networks: [ledgerline]
+    mem_limit: 512m
+    restart: unless-stopped
+  connect:
+    image: quay.io/debezium/connect:3.2
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: ledgerline-connect
+      CONFIG_STORAGE_TOPIC: ll.connect.config
+      OFFSET_STORAGE_TOPIC: ll.connect.offsets
+      STATUS_STORAGE_TOPIC: ll.connect.status
+      CONFIG_STORAGE_REPLICATION_FACTOR: '1'
+      OFFSET_STORAGE_REPLICATION_FACTOR: '1'
+      STATUS_STORAGE_REPLICATION_FACTOR: '1'
+      HEAP_OPTS: -Xms128m -Xmx256m
+    ports: ['127.0.0.1:8083:8083']
+    networks: [ledgerline]
+    depends_on: [kafka, postgres]
+    mem_limit: 512m
+    restart: unless-stopped
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    init: true
+    command: [start-dev, --import-realm]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: local-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: '${KEYCLOAK_PASSWORD:?Run scripts/local-up.ps1}'
+      KC_HOSTNAME: http://localhost:8180
+      KC_HEALTH_ENABLED: 'true'
+      JAVA_OPTS_KC_HEAP: -Xms128m -Xmx256m
+    ports: ['127.0.0.1:8180:8080']
+    volumes: ['./infra/local/realm.json:/opt/keycloak/data/import/realm.json:ro', './infra/keycloak/themes/ledgerline:/opt/keycloak/themes/ledgerline:ro', keycloak-data:/opt/keycloak/data]
+    networks: [ledgerline]
+    mem_limit: 512m
+    restart: unless-stopped
+  object-storage:
+    image: chrislusf/seaweedfs:3.85
+    command: [server, -s3, '-dir=/data', '-s3.config=/etc/seaweedfs/s3.json']
+    ports: ['127.0.0.1:9001:8333']
+    volumes: [object-data:/data, './infra/local/s3-credentials.json:/etc/seaweedfs/s3.json:ro']
+    networks: [ledgerline]
+    mem_limit: 192m
+    restart: unless-stopped
+  mailpit:
+    image: axllent/mailpit:v1.24
+    ports: ['127.0.0.1:8025:8025']
+    networks: [ledgerline]
+    mem_limit: 64m
+    restart: unless-stopped
+
+  core-finance:
+    <<: *app
+    build: ./services/core-finance
+    image: ledgerline/core-finance:dev
+    environment:
+      <<: *otel
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/ledgerline
+      POSTGRES_USER: ledgerline
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD}'
+      OIDC_ISSUER_URI: http://localhost:8180/realms/ledgerline
+      OIDC_JWKS_URI: http://keycloak:8080/realms/ledgerline/protocol/openid-connect/certs
+      OIDC_AUDIENCE: ledgerline
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: http://otel-collector:4318/v1/traces
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=20
+    depends_on: {postgres: {condition: service_healthy}, logstash: {condition: service_started}, keycloak: {condition: service_started}}
+    mem_limit: 512m
+  capture-automation:
+    <<: *app
+    build: ./services/capture-automation
+    image: ledgerline/capture-automation:dev
+    environment: {<<: *otel, MONGO_URL: 'mongodb://mongodb:27017/ledgerline?replicaSet=rs0', OTEL_SERVICE_NAME: capture-automation}
+    depends_on: {mongo-init: {condition: service_completed_successfully}, logstash: {condition: service_started}}
+    mem_limit: 256m
+  rates-realtime:
+    <<: *app
+    build: ./services/rates-realtime
+    image: ledgerline/rates-realtime:dev
+    environment: {<<: *otel, REDIS_URL: 'redis://:${REDIS_PASSWORD}@redis:6379', OTEL_SERVICE_NAME: rates-realtime}
+    depends_on: {redis: {condition: service_healthy}, logstash: {condition: service_started}}
+    mem_limit: 128m
+  analytics:
+    <<: *app
+    build: ./services/analytics
+    image: ledgerline/analytics:dev
+    environment: {<<: *otel, CLICKHOUSE_URL: 'http://clickhouse:8123', CLICKHOUSE_USER: ledgerline, CLICKHOUSE_PASSWORD: '${CLICKHOUSE_PASSWORD}', OTEL_SERVICE_NAME: analytics}
+    depends_on: {clickhouse: {condition: service_healthy}, logstash: {condition: service_started}}
+    mem_limit: 256m
+  notifications:
+    <<: *app
+    build: ./services/notifications
+    image: ledgerline/notifications:dev
+    env_file: ./infra/local/email.env
+    environment: {<<: *otel, CASSANDRA_HOSTS: cassandra, CASSANDRA_DC: datacenter1, OTEL_SERVICE_NAME: notifications, NODE_OPTIONS: --max-old-space-size=128, OIDC_ISSUER: 'http://localhost:8180/realms/ledgerline', OIDC_JWKS: 'http://keycloak:8080/realms/ledgerline/protocol/openid-connect/certs'}
+    depends_on: {cassandra: {condition: service_healthy}, logstash: {condition: service_started}}
+    mem_limit: 256m
+  gateway:
+    <<: *app
+    image: envoyproxy/envoy:v1.33-latest
+    command: [envoy, -c, /etc/envoy/envoy.yaml, --concurrency, '2']
+    volumes: ['./infra/local/envoy.yaml:/etc/envoy/envoy.yaml:ro']
+    ports: ['127.0.0.1:8088:8080']
+    mem_limit: 96m
+    depends_on: [logstash]
+  web:
+    <<: *app
+    build: {context: ., dockerfile: apps/web/Dockerfile}
+    image: ledgerline/web:dev
+    ports: ['127.0.0.1:8080:8080']
+    volumes: ['./infra/local/runtime-public.json:/usr/share/nginx/html/runtime.json:ro']
+    mem_limit: 64m
+    depends_on: [gateway, logstash]
+
+  prometheus:
+    image: prom/prometheus:v3.4.1
+    command: [--config.file=/etc/prometheus/prometheus.yml, --storage.tsdb.retention.time=3d, --storage.tsdb.retention.size=512MB, --web.enable-lifecycle]
+    volumes: ['./observability/prometheus:/etc/prometheus:ro', prometheus-data:/prometheus]
+    ports: ['127.0.0.1:9090:9090']
+    networks: [ledgerline]
+    mem_limit: 256m
+    restart: unless-stopped
+  grafana:
+    image: grafana/grafana:12.0.2
+    environment: {GF_SECURITY_ADMIN_USER: local-admin, GF_SECURITY_ADMIN_PASSWORD: '${GRAFANA_PASSWORD:?Run scripts/local-up.ps1}', GF_AUTH_ANONYMOUS_ENABLED: 'true', GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer, GF_USERS_ALLOW_SIGN_UP: 'false'}
+    volumes: [grafana-data:/var/lib/grafana, './observability/grafana/provisioning:/etc/grafana/provisioning:ro', './observability/grafana/dashboards:/var/lib/grafana/dashboards:ro']
+    ports: ['127.0.0.1:3000:3000']
+    networks: [ledgerline]
+    mem_limit: 256m
+    restart: unless-stopped
+  alertmanager:
+    image: prom/alertmanager:v0.28.1
+    volumes: ['./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro']
+    ports: ['127.0.0.1:9093:9093']
+    networks: [ledgerline]
+    mem_limit: 64m
+    restart: unless-stopped
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.0
+    environment: {discovery.type: single-node, xpack.security.enabled: 'false', xpack.license.self_generated.type: basic, xpack.ml.enabled: 'false', xpack.watcher.enabled: 'false', xpack.profiling.enabled: 'false', ingest.geoip.downloader.enabled: 'false', ES_JAVA_OPTS: '-Xms320m -Xmx320m'}
+    volumes: [elastic-data:/usr/share/elasticsearch/data]
+    ports: ['127.0.0.1:9200:9200']
+    networks: [ledgerline]
+    mem_limit: 896m
+    healthcheck: {test: [CMD-SHELL, 'curl -fsS localhost:9200/_cluster/health >/dev/null'], interval: 20s, timeout: 5s, retries: 15, start_period: 30s}
+    restart: unless-stopped
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.19.0
+    environment: {LS_JAVA_OPTS: '-Xms128m -Xmx192m -XX:MaxDirectMemorySize=64m -XX:ActiveProcessorCount=2'}
+    volumes: ['./observability/logstash/pipeline:/usr/share/logstash/pipeline:ro', './observability/logstash/logstash.yml:/usr/share/logstash/config/logstash.yml:ro']
+    ports: ['127.0.0.1:12201:12201/udp']
+    networks: [ledgerline]
+    depends_on: {elasticsearch: {condition: service_healthy}}
+    mem_limit: 640m
+    restart: unless-stopped
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.19.0
+    environment: {ELASTICSEARCH_HOSTS: 'http://elasticsearch:9200', TELEMETRY_ENABLED: 'false', XPACK_SECURITY_ENABLED: 'false', XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY: '${KIBANA_ENCRYPTION_KEY}', XPACK_SECURITY_ENCRYPTIONKEY: '${KIBANA_ENCRYPTION_KEY}', XPACK_REPORTING_ENCRYPTIONKEY: '${KIBANA_ENCRYPTION_KEY}', XPACK_SECURITYSOLUTION_ENABLED: 'false', NODE_OPTIONS: --max-old-space-size=640}
+    volumes: [kibana-data:/usr/share/kibana/data]
+    ports: ['127.0.0.1:5601:5601']
+    networks: [ledgerline]
+    depends_on: {elasticsearch: {condition: service_healthy}}
+    mem_limit: 896m
+    restart: unless-stopped
+  tempo:
+    image: grafana/tempo:2.8.0
+    command: [-config.file=/etc/tempo.yaml]
+    ports: ['127.0.0.1:3200:3200']
+    volumes: ['./observability/tempo.yml:/etc/tempo.yaml:ro', tempo-data:/var/tempo]
+    networks: [ledgerline]
+    mem_limit: 256m
+    restart: unless-stopped
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.127.0
+    command: [--config=/etc/otel.yaml]
+    environment: {GOMEMLIMIT: 90MiB, GOGC: '40'}
+    volumes: ['./observability/otel.yml:/etc/otel.yaml:ro']
+    networks: [ledgerline]
+    mem_limit: 160m
+    depends_on: [tempo]
+    restart: unless-stopped
+  cadvisor:
+    image: ghcr.io/google/cadvisor:0.60.5
+    command: [--housekeeping_interval=30s, --docker_only=true, --store_container_labels=false, '--enable_metrics=cpu,memory,network,oom_event']
+    privileged: true
+    volumes: ['/:/rootfs:ro', '/var/run:/var/run:ro', '/sys:/sys:ro', '/var/lib/docker:/var/lib/docker:ro']
+    networks: [ledgerline]
+    mem_limit: 192m
+    restart: unless-stopped
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    environment: {DATA_SOURCE_NAME: 'postgresql://ledgerline:${POSTGRES_PASSWORD}@postgres:5432/ledgerline?sslmode=disable'}
+    networks: [ledgerline]
+    mem_limit: 64m
+    restart: unless-stopped
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.73.0
+    environment: {REDIS_ADDR: 'redis://redis:6379', REDIS_PASSWORD: '${REDIS_PASSWORD}'}
+    networks: [ledgerline]
+    mem_limit: 32m
+    restart: unless-stopped
+  blackbox:
+    image: prom/blackbox-exporter:v0.26.0
+    command: [--config.file=/etc/blackbox.yml]
+    volumes: ['./observability/blackbox.yml:/etc/blackbox.yml:ro']
+    networks: [ledgerline]
+    mem_limit: 64m
+    environment: {GOMEMLIMIT: 48MiB, GOMAXPROCS: '2'}
+    restart: unless-stopped
+
+networks:
+  ledgerline: {name: ledgerline-local}
+volumes:
+  postgres-data:
+  mongo-data:
+  redis-data:
+  clickhouse-data:
+  cassandra-data:
+  kafka-data:
+  keycloak-data:
+  object-data:
+  prometheus-data:
+  grafana-data:
+  elastic-data:
+  kibana-data:
+  tempo-data:

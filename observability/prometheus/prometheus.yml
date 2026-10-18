@@ -1,0 +1,52 @@
+global: {scrape_interval: 15s, evaluation_interval: 15s}
+rule_files: [/etc/prometheus/alerts.yml]
+alerting:
+  alertmanagers:
+    - static_configs: [{targets: ['alertmanager:9093']}]
+scrape_configs:
+  - job_name: ledgerline-services
+    file_sd_configs: [{files: [/etc/prometheus/application-targets.json], refresh_interval: 5s}]
+  - job_name: service-readiness
+    metrics_path: /probe
+    params: {module: [http_2xx]}
+    file_sd_configs: [{files: [/etc/prometheus/health-targets.json], refresh_interval: 5s}]
+    relabel_configs:
+      - {source_labels: [__address__], target_label: __param_target}
+      - {source_labels: [__param_target], target_label: instance}
+      - {target_label: __address__, replacement: 'blackbox:9115'}
+  - job_name: databases-tcp
+    metrics_path: /probe
+    params: {module: [tcp_connect]}
+    static_configs:
+      - {targets: ['postgres:5432'], labels: {database: postgresql}}
+      - {targets: ['mongodb:27017'], labels: {database: mongodb}}
+      - {targets: ['redis:6379'], labels: {database: redis}}
+      - {targets: ['clickhouse:8123'], labels: {database: clickhouse}}
+      - {targets: ['cassandra:9042'], labels: {database: cassandra}}
+    relabel_configs:
+      - {source_labels: [__address__], target_label: __param_target}
+      - {source_labels: [__param_target], target_label: instance}
+      - {target_label: __address__, replacement: 'blackbox:9115'}
+  - job_name: prometheus
+    static_configs: [{targets: ['prometheus:9090']}]
+  - job_name: grafana
+    static_configs: [{targets: ['grafana:3000']}]
+  - job_name: alertmanager
+    static_configs: [{targets: ['alertmanager:9093']}]
+  - job_name: containers
+    static_configs: [{targets: ['cadvisor:8080']}]
+  - job_name: postgres
+    static_configs: [{targets: ['postgres-exporter:9187']}]
+  - job_name: redis
+    static_configs: [{targets: ['redis-exporter:9121']}]
+  - job_name: clickhouse
+    static_configs: [{targets: ['clickhouse:9363']}]
+  - job_name: gateway
+    metrics_path: /stats/prometheus
+    file_sd_configs: [{files: [/etc/prometheus/gateway-targets.json], refresh_interval: 5s}]
+  - job_name: kubernetes-state
+    file_sd_configs: [{files: [/etc/prometheus/kubernetes-targets.json], refresh_interval: 5s}]
+  - job_name: tempo
+    file_sd_configs: [{files: [/etc/prometheus/telemetry-targets.json], refresh_interval: 5s}]
+  - job_name: blackbox
+    static_configs: [{targets: ['blackbox:9115']}]
