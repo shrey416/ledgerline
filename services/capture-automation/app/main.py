@@ -65,3 +65,31 @@ async def ready():
 @app.get("/metrics", include_in_schema=False)
 async def metrics():
     return Response(generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST})
+
+from pydantic import BaseModel, Field
+import re
+class SuggestionRequest(BaseModel):
+    description: str = Field(min_length=1, max_length=200)
+
+RULES = {
+    "Groceries": ["grocery", "groceries", "supermarket", "bigbasket", "dmart"],
+    "Dining": ["restaurant", "coffee", "cafe", "swiggy", "zomato", "pizza"],
+    "Transport": ["uber", "ola", "petrol", "diesel", "metro", "bus"],
+    "Software": ["github", "adobe", "microsoft", "hosting", "software"],
+    "Utilities": ["electricity", "water", "broadband", "internet", "recharge"],
+    "Health": ["hospital", "pharmacy", "doctor", "medicine"],
+    "Travel": ["hotel", "flight", "airline", "irctc"],
+    "Shopping": ["amazon", "flipkart", "clothes"],
+}
+@app.post("/api/v1/capture/suggest")
+async def suggest(body: SuggestionRequest):
+    # Store reusable rules, never users' transaction descriptions.
+    collection = app.state.mongo.ledgerline.category_rules
+    await collection.update_one({"_id": "rules-v1"}, {"$setOnInsert": {"rules": RULES}}, upsert=True)
+    document = await collection.find_one({"_id": "rules-v1"})
+    words = set(re.findall(r"[a-z0-9]+", body.description.lower()))
+    for category, keywords in document["rules"].items():
+        matches = sorted(words.intersection(keywords))
+        if matches:
+            return {"category": category, "reason": "Matched: " + ", ".join(matches), "source": "MongoDB rules"}
+    return {"category": "Other", "reason": "No rule matched; choose a category manually.", "source": "MongoDB rules"}

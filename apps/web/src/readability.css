@@ -1,0 +1,209 @@
+/* Shared readability and viewport-safe dialog refinements. */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: clip;
+}
+.table-scroll {
+  position: relative;
+}
+.data-table th {
+  position: relative;
+}
+.sr-only {
+  left: 0;
+  top: 0;
+}
+.nav-item {
+  font-size: 14px;
+}
+.page-heading p {
+  font-size: 14px;
+}
+.eyebrow,
+.kpi-label {
+  font-size: 11px;
+}
+.kpi > span {
+  font-size: 12px;
+}
+.text-button {
+  font-size: 12px;
+}
+.category-bar-row > div:first-child,
+.category-bar-row strong {
+  font-size: 13px;
+}
+.spend-summary > span {
+  font-size: 12px;
+}
+.commitment-description strong {
+  font-size: 14px;
+}
+.commitment-description small,
+.commitment-amount small {
+  font-size: 11px;
+}
+.commitment-amount strong {
+  font-size: 14px;
+}
+.panel-footnote {
+  font-size: 11px;
+}
+.review-strip strong {
+  font-size: 14px;
+}
+.review-strip p {
+  font-size: 12px;
+}
+.data-table th {
+  font-size: 11px;
+  height: 42px;
+}
+.data-table td,
+.record-button strong {
+  font-size: 14px;
+}
+.record-button small {
+  font-size: 11px;
+}
+.category-chip {
+  font-size: 11px;
+}
+.demo-banner {
+  font-size: 11px;
+}
+.data-table td {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.list-summary {
+  font-size: 12px;
+}
+.page-footer {
+  font-size: 10px;
+}
+.budget-title {
+  font-size: 14px;
+}
+.budget-amount strong {
+  font-size: 14px;
+}
+.budget-amount small,
+.budget-progress > span {
+  font-size: 11px;
+}
+.account-card p {
+  font-size: 12px;
+}
+.field input,
+.field select,
+.field textarea {
+  font-size: 16px;
+}
+.entry-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.entry-dialog > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.form-body {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+}
+.dialog-header,
+.entry-tabs,
+.dialog-footer {
+  flex-shrink: 0;
+}
+.dialog-footer {
+  position: static;
+}
+.entry-dialog > .detail-list {
+  overflow-y: auto;
+  min-height: 0;
+}
+.entry-dialog > .detail-amount,
+.entry-dialog > .form-note {
+  flex-shrink: 0;
+}
+@media (min-width: 768px) and (max-width: 1000px) {
+  .sidebar .nav-item {
+    font-size: 0;
+  }
+}
+@media (max-width: 767px) {
+  .page-heading p {
+    font-size: 13px;
+  }
+  .kpi > span {
+    font-size: 11px;
+  }
+  .kpi-label {
+    font-size: 10px;
+  }
+  .commitment-description strong {
+    font-size: 14px;
+  }
+  .commitment-description small {
+    font-size: 11px;
+  }
+  .commitment-amount strong {
+    font-size: 14px;
+  }
+  .review-strip strong {
+    font-size: 13px;
+  }
+  .review-strip p {
+    font-size: 11px;
+  }
+  .page-footer {
+    font-size: 9px;
+  }
+  .demo-banner {
+    font-size: 10px;
+  }
+  .panel-footnote {
+    font-size: 11px;
+  }
+  .budget-amount strong {
+    font-size: 12px;
+  }
+  .budget-title {
+    font-size: 13px;
+  }
+  .dialog-footer {
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 767px) {
+  .review-strip {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: start;
+  }
+  .review-strip .button {
+    grid-column: 2;
+    margin: 0;
+    justify-self: start;
+  }
+  .page-footer > span:first-child {
+    min-width: 0;
+  }
+  .page-footer {
+    flex-wrap: wrap;
+  }
+  .entry-dialog {
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+}

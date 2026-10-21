@@ -1,7 +1,7 @@
 [
   {
     "targets": [
-      "172.19.0.7:30081"
+      "172.19.0.2:30081"
     ],
     "labels": {
       "service": "core-finance",
@@ -11,7 +11,7 @@
   },
   {
     "targets": [
-      "172.19.0.7:30082"
+      "172.19.0.2:30082"
     ],
     "labels": {
       "service": "capture-automation",
@@ -20,7 +20,7 @@
   },
   {
     "targets": [
-      "172.19.0.7:30083"
+      "172.19.0.2:30083"
     ],
     "labels": {
       "service": "rates-realtime",
@@ -29,7 +29,7 @@
   },
   {
     "targets": [
-      "172.19.0.7:30084"
+      "172.19.0.2:30084"
     ],
     "labels": {
       "service": "analytics",
@@ -38,7 +38,7 @@
   },
   {
     "targets": [
-      "172.19.0.7:30085"
+      "172.19.0.2:30085"
     ],
     "labels": {
       "service": "notifications",

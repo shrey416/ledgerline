@@ -31,7 +31,9 @@ services:
       memlock: {soft: 65536, hard: 65536}
   kafka: {cpus: 0.5}
   keycloak:
-    cpus: 1.0
+    # Authentication is bursty (password hashing). Avoid throttling each login;
+    # retain the existing memory cap and do not weaken password security.
+    cpus: 2.0
     # Heap remains capped at 256MiB. Leave room for native JVM/authentication memory.
     mem_limit: 640m
     environment:
@@ -43,6 +45,10 @@ services:
       MANAGEMENT_TRACING_ENABLED: 'false'
       TRACE_SAMPLE_RATE: '0.0'
       JAVA_TOOL_OPTIONS: '-XX:MaxRAMPercentage=60 -XX:InitialRAMPercentage=15 -XX:ActiveProcessorCount=2'
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: '4'
+      SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: '1'
+      SERVER_TOMCAT_THREADS_MAX: '16'
+      SERVER_TOMCAT_THREADS_MIN_SPARE: '2'
   capture-automation: {<<: *daily-app}
   rates-realtime: {<<: *daily-app}
   analytics: {<<: *daily-app}

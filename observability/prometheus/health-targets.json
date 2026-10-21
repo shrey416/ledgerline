@@ -1,7 +1,7 @@
 [
   {
     "targets": [
-      "http://172.19.0.7:30081/actuator/health/readiness"
+      "http://172.19.0.2:30081/actuator/health/readiness"
     ],
     "labels": {
       "service": "core-finance",
@@ -10,7 +10,7 @@
   },
   {
     "targets": [
-      "http://172.19.0.7:30082/health/ready"
+      "http://172.19.0.2:30082/health/ready"
     ],
     "labels": {
       "service": "capture-automation",
@@ -19,7 +19,7 @@
   },
   {
     "targets": [
-      "http://172.19.0.7:30083/health/ready"
+      "http://172.19.0.2:30083/health/ready"
     ],
     "labels": {
       "service": "rates-realtime",
@@ -28,7 +28,7 @@
   },
   {
     "targets": [
-      "http://172.19.0.7:30084/health/ready"
+      "http://172.19.0.2:30084/health/ready"
     ],
     "labels": {
       "service": "analytics",
@@ -37,7 +37,7 @@
   },
   {
     "targets": [
-      "http://172.19.0.7:30085/health/ready"
+      "http://172.19.0.2:30085/health/ready"
     ],
     "labels": {
       "service": "notifications",
