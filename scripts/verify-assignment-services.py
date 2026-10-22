@@ -9,7 +9,10 @@ def call(path, body=None):
         return json.load(response)
 assert call('/api/v1/capture/suggest',{'description':'Zomato lunch'})['category']=='Dining'
 assert call('/api/v1/capture/suggest',{'description':'unmatched xyz'})['category']=='Other'
-assert call('/api/v1/rates/convert?from=INR&to=USD&amount=850')['converted']==10
+conversion=call('/api/v1/rates/convert?from=INR&to=USD&amount=850')
+assert conversion['rate']>0 and abs(conversion['converted']-850*conversion['rate'])<=0.0051
+assert conversion['source']=='ExchangeRate-API' and conversion['updatedAt']
+assert call('/api/v1/rates/convert?from=USD&to=USD&amount=12.34')['converted']==12.34
 try:
     call('/api/v1/rates/convert?from=INR&to=XXX&amount=850')
     raise AssertionError('Unsupported currency accepted')
